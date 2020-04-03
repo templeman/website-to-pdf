@@ -5,6 +5,7 @@
 #  - Homebrew package manager
 #  - imagemagick
 #  - img2pdf
+#  - ocrmypdf
 
 outdir="$HOME/web-to-pdf-1"
 
@@ -36,8 +37,17 @@ if brew ls --versions imagemagick > /dev/null; then
   # The package is installed
 else
   echo 'imagemagick not installed. Queueing for installation...'
-  brew install imagemagick
   brew_formulas+=('imagemagick')
+  # The package is not installed
+fi
+
+echo 'OCRmyPDF exists?'
+if brew ls --versions ocrmypdf > /dev/null; then
+  echo OK
+  # The package is installed
+else
+  echo 'OCRmyPDF not installed. Queueing for installation...'
+  brew_formulas+=('ocrmypdf')
   # The package is not installed
 fi
 
