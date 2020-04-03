@@ -1,0 +1,62 @@
+#!/bin/zsh
+# This program accepts a url seed for a website and generates a combined PDF output.
+# Requirements:
+#  - a Bourne-compatible shell (e.g. bash or zsh)
+#  - Homebrew package manager
+#  - imagemagick
+#  - img2pdf
+
+outdir="$HOME/web-to-pdf"
+
+# echo -n "Enter URL seed: " >&2
+# read -r -p 'Enter URL seed: ' url
+vared -c -p 'Enter URL seed: ' url
+apiflash_endpoint="https://api.apiflash.com/v1/urltoimage"
+access_key="a6673cff3601450da95edb5a806de84a"
+url_root=${url%/*.*}
+
+
+echo Brew binary exists?
+if command -v brew > /dev/null 2>&1; then
+  echo OK
+else
+  echo Brew not found. Installing...
+fi
+
+# urls=($(linkchecker ${url} --verbose -r=1 --ignore=About --file-output=csv | grep '^Real URL' | sed 's/Real URL   //g' | sed "s/.*(?<!\.(jpg|xml))$//g")) > ${outdir}/links-2.txt
+# linkchecker ${url} --verbose -r=1 --file-output=csv | grep '^Real URL' | sed 's/Real URL   //g' | sed "s/.*(?<!\.(jpg|xml|js|svg))$//g" > ${outdir}/links-2.txt
+# linkchecker ${url} --verbose -r=1 --file-output=csv | grep '^Real URL' | sed 's/Real URL   //g' | sed '/.*(?<!\.(jpg|xml|js|svg))$/d' > ${outdir}/links-2.txt
+# urls=($(linkchecker ${url} --verbose -r=1 --file-output=csv | grep '^Real URL' | sed 's/Real URL   //g' | grep "^${url}"))
+urls=($(linkchecker ${url} --verbose -r=1 --file-output=csv | grep '^Real URL' | sed 's/Real URL   //g' | grep "^${url_root}"))
+#> ${outdir}/links-2.txt
+# linkchecker ${url} --verbose -r=1 --file-output=csv | grep '^Real URL' | sed 's/Real URL   //g' | awk "!/.*(?<!jpg|xml|js|svg)$/d" > ${outdir}/links-2.txt
+# echo ${#urls}
+
+## now loop through the above array
+# Kill this section for now to preserve remaining API quota
+# j=0
+# for i in "${urls[@]}"
+# do
+#    if [[ ! $i =~ .*\.(svg|png|js|css|xml)$ ]]; then
+#     curl --request GET --url "${apiflash_endpoint}?access_key=${access_key}&url=${i}&width=1280&full_page=true&fresh=true&format=jpeg&quality=100" > ${outdir}/apiflash-${j}.jpg
+#     echo "$i"
+#     j=$((j + 1))
+#   fi
+# done
+
+# magick ${outdir}/*.png ${outdir}/page-%d.pdf
+# convert ${outdir}/*.png -background white -alpha remove -alpha off ready-%d.png
+# img2pdf ${outdir}/*.png | ocrmypdf --output-type pdf - complete.pdf
+# convert ${outdir}/*.png -background white -alpha remove -alpha off {}
+# mogrify ${outdir}/*.png -background white -alpha remove -alpha off
+# img2pdf ${outdir}/*.jpg | ocrmypdf --output-type pdf --optimize 2 - ${outdir}/complete.pdf
+
+convert -append ./*.jpg ./full.jpg
+convert -crop 1280x1920 +repage ./full.jpg ./cropped/cropped_%d.jpg                                                                                                                               [2.4.1]
+# convert -bordercolor white -border 0x50 ./cropped/*.jpg ./border/border_%d.jpg
+# img2pdf --output 6.pdf --pagesize Letter --imgsize 8in --fit fill ./cropped/*.jpg
+
+img2pdf --output 11.pdf --pagesize Letter --imgsize 8inx10.5in --border 1cm:0 ./cropped/*.jpg
+
+# url="https://example.com"
+# curl --request GET --url "${apiflash_endpoint}?access_key=${access_key}&url=${url}&full_page=true&fresh=true&format=png" > ${outdir}/apiflash.png
