@@ -6,7 +6,7 @@
 #  - imagemagick
 #  - img2pdf
 
-outdir="$HOME/web-to-pdf"
+outdir="$HOME/web-to-pdf-1"
 
 # echo -n "Enter URL seed: " >&2
 # read -r -p 'Enter URL seed: ' url
@@ -14,35 +14,70 @@ vared -c -p 'Enter URL seed: ' url
 apiflash_endpoint="https://api.apiflash.com/v1/urltoimage"
 access_key="a6673cff3601450da95edb5a806de84a"
 url_root=${url%/*.*}
+fresh=false
 
+echo ${url_root}
 
-echo Brew binary exists?
+echo 'Brew binary exists?'
 if command -v brew > /dev/null 2>&1; then
   echo OK
 else
-  echo Brew not found. Installing...
+  # echo Brew not found. Installing...
+  echo 'Brew not found. Please paste the following line into the terminal to install:'
+  echo '/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install.sh)"'
+  exit 1
+  # /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install.sh)"
 fi
+
+brew_formulas=()
+echo 'Imagemagick exists?'
+if brew ls --versions imagemagick > /dev/null; then
+  echo OK
+  # The package is installed
+else
+  echo 'imagemagick not installed. Queueing for installation...'
+  brew install imagemagick
+  brew_formulas+=('imagemagick')
+  # The package is not installed
+fi
+
+for i in "${brew_formulas[@]}"
+do
+  brew install $i
+done
 
 # urls=($(linkchecker ${url} --verbose -r=1 --ignore=About --file-output=csv | grep '^Real URL' | sed 's/Real URL   //g' | sed "s/.*(?<!\.(jpg|xml))$//g")) > ${outdir}/links-2.txt
 # linkchecker ${url} --verbose -r=1 --file-output=csv | grep '^Real URL' | sed 's/Real URL   //g' | sed "s/.*(?<!\.(jpg|xml|js|svg))$//g" > ${outdir}/links-2.txt
 # linkchecker ${url} --verbose -r=1 --file-output=csv | grep '^Real URL' | sed 's/Real URL   //g' | sed '/.*(?<!\.(jpg|xml|js|svg))$/d' > ${outdir}/links-2.txt
 # urls=($(linkchecker ${url} --verbose -r=1 --file-output=csv | grep '^Real URL' | sed 's/Real URL   //g' | grep "^${url}"))
-urls=($(linkchecker ${url} --verbose -r=1 --file-output=csv | grep '^Real URL' | sed 's/Real URL   //g' | grep "^${url_root}"))
+
+echo 'Gathering individual URLs...'
+urls=($(linkchecker ${url} --verbose -r=1 --output=csv | grep '^Real URL' | sed 's/Real URL   //g' | grep "^${url_root}"))
+
 #> ${outdir}/links-2.txt
 # linkchecker ${url} --verbose -r=1 --file-output=csv | grep '^Real URL' | sed 's/Real URL   //g' | awk "!/.*(?<!jpg|xml|js|svg)$/d" > ${outdir}/links-2.txt
 # echo ${#urls}
 
-## now loop through the above array
-# Kill this section for now to preserve remaining API quota
-# j=0
-# for i in "${urls[@]}"
-# do
-#    if [[ ! $i =~ .*\.(svg|png|js|css|xml)$ ]]; then
-#     curl --request GET --url "${apiflash_endpoint}?access_key=${access_key}&url=${i}&width=1280&full_page=true&fresh=true&format=jpeg&quality=100" > ${outdir}/apiflash-${j}.jpg
-#     echo "$i"
-#     j=$((j + 1))
-#   fi
-# done
+# Create a place for the screenshots
+mkdir -p ${outdir}
+mkdir -p ${outdir}/cropped
+
+## now loop through the URLS array
+j=0
+for i in "${urls[@]}"
+do
+   if [[ ! $i =~ .*\.(svg|png|js|css|xml)$ ]]; then
+    echo "Generating screenshot of $i..."
+    ## Uncomment to capture images
+    # curl --request GET --url "${apiflash_endpoint}?access_key=${access_key}&url=${i}&width=1280&full_page=true&fresh=${fresh}&format=jpeg&quality=100" > ${outdir}/apiflash-${j}.jpg
+    echo DONE
+    j=$((j + 1))
+  fi
+done
+
+echo 'Removing first screenshot as duplicate...'
+rm ${outdir}/*-0.jpg
+echo DONE
 
 # magick ${outdir}/*.png ${outdir}/page-%d.pdf
 # convert ${outdir}/*.png -background white -alpha remove -alpha off ready-%d.png
@@ -51,12 +86,20 @@ urls=($(linkchecker ${url} --verbose -r=1 --file-output=csv | grep '^Real URL' |
 # mogrify ${outdir}/*.png -background white -alpha remove -alpha off
 # img2pdf ${outdir}/*.jpg | ocrmypdf --output-type pdf --optimize 2 - ${outdir}/complete.pdf
 
-convert -append ./*.jpg ./full.jpg
-convert -crop 1280x1920 +repage ./full.jpg ./cropped/cropped_%d.jpg                                                                                                                               [2.4.1]
+echo 'Combining screenshots...'
+convert -append ${outdir}/*.jpg ${outdir}/full.jpg
+echo DONE
+
+echo 'Normalizing sizes...'
+convert -crop 1280x1920 +repage ${outdir}/full.jpg ${outdir}/cropped/cropped_%d.jpg
+echo DONE
+
 # convert -bordercolor white -border 0x50 ./cropped/*.jpg ./border/border_%d.jpg
 # img2pdf --output 6.pdf --pagesize Letter --imgsize 8in --fit fill ./cropped/*.jpg
 
-img2pdf --output 11.pdf --pagesize Letter --imgsize 8inx10.5in --border 1cm:0 ./cropped/*.jpg
-
-# url="https://example.com"
-# curl --request GET --url "${apiflash_endpoint}?access_key=${access_key}&url=${url}&full_page=true&fresh=true&format=png" > ${outdir}/apiflash.png
+echo 'Building PDF...'
+# img2pdf --output ${outdir}/complete.pdf --pagesize Letter --imgsize 8inx10.5in --border 1cm:0 ${outdir}/cropped/*.jpg
+# img2pdf ${outdir}/cropped/*.jpg --pagesize Letter --imgsize 8inx10.5in --border 1cm:0 | ocrmypdf --output-type pdf --optimize 2 - ${outdir}/complete.pdf
+img2pdf ${outdir}/cropped/*.jpg --pagesize Letter --imgsize 8inx10.5in --border 1cm:0 | ocrmypdf --output-type pdf - ${outdir}/complete.pdf
+echo DONE
+echo "Find the complete PDF at ${outdir}/complete.pdf"
