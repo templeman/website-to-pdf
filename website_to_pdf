@@ -11,7 +11,16 @@ outdir="$HOME/web-to-pdf-1"
 
 # echo -n "Enter URL seed: " >&2
 # read -r -p 'Enter URL seed: ' url
-vared -c -p 'Enter URL seed: ' url
+url=$(enquirer input -m "Enter URL seed: ")
+
+# if [ "$confirm" = "true" ]; then
+#     echo "Continuing ..."
+# else
+#     echo "Thanks for using this tool. Quitting ..."
+#     exit
+# fi
+# vared -c -p 'Enter URL seed: ' url
+echo "You entered ${url}"
 apiflash_endpoint="https://api.apiflash.com/v1/urltoimage"
 access_key="a6673cff3601450da95edb5a806de84a"
 url_root=${url%/*.*}
@@ -44,11 +53,18 @@ fi
 echo 'OCRmyPDF exists?'
 if brew ls --versions ocrmypdf > /dev/null; then
   echo OK
-  # The package is installed
 else
   echo 'OCRmyPDF not installed. Queueing for installation...'
   brew_formulas+=('ocrmypdf')
-  # The package is not installed
+fi
+
+echo 'Enquirer exists?'
+if brew ls --versions enquirer > /dev/null; then
+  echo OK
+else
+  echo 'Enquirer not installed. Installing tap formula...'
+  brew tap termapps/tap
+  brew install enquirer
 fi
 
 for i in "${brew_formulas[@]}"
@@ -62,7 +78,26 @@ done
 # urls=($(linkchecker ${url} --verbose -r=1 --file-output=csv | grep '^Real URL' | sed 's/Real URL   //g' | grep "^${url}"))
 
 echo 'Gathering individual URLs...'
-urls=($(linkchecker ${url} --verbose -r=1 --output=csv | grep '^Real URL' | sed 's/Real URL   //g' | grep "^${url_root}"))
+urls=($(linkchecker ${url} --verbose -r=1 --file-output=csv | grep '^Real URL' | sed 's/Real URL   //g' | grep "^${url_root}"))
+
+
+# for i in "${urls[@]}"
+# do
+# echo "Link ${i}"
+# done
+
+# printf '%s' "${urls[@]}"
+# urls_list=$(printf "%s " "${urls[@]}")
+# echo "URLS ${urls}"
+urls_sorted=($(enquirer sort -m "Sort order of pages:" ${urls[@]}))
+# echo "Sorted results: ${urls_sorted}"
+
+# for i in "${urls_sorted[@]}"
+# do
+# echo "Sorted ${i}"
+# done
+
+# exit 1
 
 #> ${outdir}/links-2.txt
 # linkchecker ${url} --verbose -r=1 --file-output=csv | grep '^Real URL' | sed 's/Real URL   //g' | awk "!/.*(?<!jpg|xml|js|svg)$/d" > ${outdir}/links-2.txt
@@ -74,7 +109,7 @@ mkdir -p ${outdir}/cropped
 
 ## now loop through the URLS array
 j=0
-for i in "${urls[@]}"
+for i in "${urls_sorted[@]}"
 do
    if [[ ! $i =~ .*\.(svg|png|js|css|xml)$ ]]; then
     echo "Generating screenshot of $i..."
@@ -85,9 +120,9 @@ do
   fi
 done
 
-echo 'Removing first screenshot as duplicate...'
-rm ${outdir}/*-0.jpg
-echo DONE
+# echo 'Removing first screenshot as duplicate...'
+# rm ${outdir}/*-0.jpg
+# echo DONE
 
 # magick ${outdir}/*.png ${outdir}/page-%d.pdf
 # convert ${outdir}/*.png -background white -alpha remove -alpha off ready-%d.png
