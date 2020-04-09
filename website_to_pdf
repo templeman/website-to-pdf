@@ -7,26 +7,16 @@
 #  - img2pdf
 #  - ocrmypdf
 
-outdir="$HOME/web-to-pdf-1"
+outdir="$HOME/web-to-pdf-italy-tester"
 
-# echo -n "Enter URL seed: " >&2
-# read -r -p 'Enter URL seed: ' url
 url=$(enquirer input -m "Enter URL seed: ")
-
-# if [ "$confirm" = "true" ]; then
-#     echo "Continuing ..."
-# else
-#     echo "Thanks for using this tool. Quitting ..."
-#     exit
-# fi
-# vared -c -p 'Enter URL seed: ' url
 echo "You entered ${url}"
+
 apiflash_endpoint="https://api.apiflash.com/v1/urltoimage"
 access_key="a6673cff3601450da95edb5a806de84a"
-url_root=${url%/*.*}
+# url_root=${url%/*.*}
+url_root=${url:0:18}
 fresh=false
-
-echo ${url_root}
 
 echo 'Brew binary exists?'
 if command -v brew > /dev/null 2>&1; then
@@ -78,13 +68,15 @@ done
 # urls=($(linkchecker ${url} --verbose -r=1 --file-output=csv | grep '^Real URL' | sed 's/Real URL   //g' | grep "^${url}"))
 
 echo 'Gathering individual URLs...'
-urls=($(linkchecker ${url} --verbose -r=1 --file-output=csv | grep '^Real URL' | sed 's/Real URL   //g' | grep "^${url_root}"))
+urls=($(linkchecker ${url} --verbose -r=1 --file-output=csv | grep '^Real URL' | sed 's/Real URL   //g' | grep ${url_root}))
 
 
+## Uncomment to echo final linkchecker results
 # for i in "${urls[@]}"
 # do
 # echo "Link ${i}"
 # done
+
 
 # printf '%s' "${urls[@]}"
 # urls_list=$(printf "%s " "${urls[@]}")
@@ -107,7 +99,7 @@ urls_sorted=($(enquirer sort -m "Sort order of pages:" ${urls[@]}))
 mkdir -p ${outdir}
 mkdir -p ${outdir}/cropped
 
-## now loop through the URLS array
+## Loop through the URLS array and fetch screenshots of each
 j=0
 for i in "${urls_sorted[@]}"
 do
