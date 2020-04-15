@@ -7,16 +7,18 @@
 #  - img2pdf
 #  - ocrmypdf
 
-outdir="$HOME/web-to-pdf-italy-tester"
+apiflash_endpoint="https://api.apiflash.com/v1/urltoimage"
+access_key="a6673cff3601450da95edb5a806de84a"
 
 url=$(enquirer input -m "Enter URL seed: ")
 echo "You entered ${url}"
 
-apiflash_endpoint="https://api.apiflash.com/v1/urltoimage"
-access_key="a6673cff3601450da95edb5a806de84a"
 # url_root=${url%/*.*}
 url_root=${url:0:18}
-fresh=false
+trip_id=${url:8:11}
+fresh=$(enquirer confirm -m "Get fresh screenshots? (y/N)")
+outdir="$HOME/web-to-pdf-${trip_id}"
+dry_run=$(enquirer confirm -m "Dry run? (y/N)")
 
 echo 'Brew binary exists?'
 if command -v brew > /dev/null 2>&1; then
@@ -105,8 +107,9 @@ for i in "${urls_sorted[@]}"
 do
    if [[ ! $i =~ .*\.(svg|png|js|css|xml)$ ]]; then
     echo "Generating screenshot of $i..."
-    ## Uncomment to capture images
-    # curl --request GET --url "${apiflash_endpoint}?access_key=${access_key}&url=${i}&width=1280&full_page=true&fresh=${fresh}&format=jpeg&quality=100" > ${outdir}/apiflash-${j}.jpg
+    if [ "$dry_run" = "false" ]; then
+      curl --request GET --url "${apiflash_endpoint}?access_key=${access_key}&url=${i}&width=1280&full_page=true&fresh=${fresh}&format=jpeg&quality=100" > ${outdir}/apiflash-${j}.jpg
+    fi
     echo DONE
     j=$((j + 1))
   fi
@@ -124,11 +127,15 @@ done
 # img2pdf ${outdir}/*.jpg | ocrmypdf --output-type pdf --optimize 2 - ${outdir}/complete.pdf
 
 echo 'Combining screenshots...'
-convert -append ${outdir}/*.jpg ${outdir}/full.jpg
+if [ "$dry_run" = "false" ]; then
+  convert -append ${outdir}/*.jpg ${outdir}/full.jpg
+fi
 echo DONE
 
 echo 'Normalizing sizes...'
-convert -crop 1280x1920 +repage ${outdir}/full.jpg ${outdir}/cropped/cropped_%d.jpg
+if [ "$dry_run" = "false" ]; then
+  convert -crop 1280x1920 +repage ${outdir}/full.jpg ${outdir}/cropped/cropped_%d.jpg
+fi
 echo DONE
 
 # convert -bordercolor white -border 0x50 ./cropped/*.jpg ./border/border_%d.jpg
@@ -137,6 +144,12 @@ echo DONE
 echo 'Building PDF...'
 # img2pdf --output ${outdir}/complete.pdf --pagesize Letter --imgsize 8inx10.5in --border 1cm:0 ${outdir}/cropped/*.jpg
 # img2pdf ${outdir}/cropped/*.jpg --pagesize Letter --imgsize 8inx10.5in --border 1cm:0 | ocrmypdf --output-type pdf --optimize 2 - ${outdir}/complete.pdf
-img2pdf ${outdir}/cropped/*.jpg --pagesize Letter --imgsize 8inx10.5in --border 1cm:0 | ocrmypdf --output-type pdf - ${outdir}/complete.pdf
+if [ "$dry_run" = "false" ]; then
+  img2pdf ${outdir}/cropped/*.jpg --pagesize Letter --imgsize 8inx10.5in --border 1cm:0 | ocrmypdf --output-type pdf - ${outdir}/complete.pdf
+fi
 echo DONE
-echo "Find the complete PDF at ${outdir}/complete.pdf"
+if [ "$dry_run" = "false" ]; then
+  echo "Find the complete PDF at ${outdir}/complete.pdf"
+else
+  echo "Dry run complete."
+fi
