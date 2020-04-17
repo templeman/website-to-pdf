@@ -7,8 +7,8 @@
 #  - img2pdf
 #  - ocrmypdf
 
+source .env
 apiflash_endpoint="https://api.apiflash.com/v1/urltoimage"
-access_key="a6673cff3601450da95edb5a806de84a"
 
 url=$(enquirer input -m "Enter URL seed: ")
 echo "You entered ${url}"
