@@ -1,46 +1,48 @@
 #!/bin/zsh
 # This program accepts a url seed for a website and generates a combined PDF output.
 # Requirements:
-#  - a Bourne-compatible shell (e.g. bash or zsh)
+#  - a Bourne-compatible shell (only tested for zsh)
 #  - Homebrew package manager
+#  - enquirer
 #  - imagemagick
-#  - img2pdf
 #  - ocrmypdf
+#  - img2pdf
 
 source .env
 apiflash_endpoint="https://api.apiflash.com/v1/urltoimage"
 
+
 url=$(enquirer input -m "Enter URL seed: ")
 echo "You entered ${url}"
 
-# url_root=${url%/*.*}
+
 url_root=${url:0:18}
 trip_id=${url:8:11}
 fresh=$(enquirer confirm -m "Get fresh screenshots? (y/N)")
 outdir="$HOME/web-to-pdf-${trip_id}"
 dry_run=$(enquirer confirm -m "Dry run? (y/N)")
 
+
+## Check if homebrew package manager is available
 echo 'Brew binary exists?'
 if command -v brew > /dev/null 2>&1; then
   echo OK
 else
-  # echo Brew not found. Installing...
-  echo 'Brew not found. Please paste the following line into the terminal to install:'
-  echo '/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install.sh)"'
+  echo 'Brew not found. Please go to https://brew.sh/ and follow the installation instructions, then run this script again.'
   exit 1
-  # /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/master/install.sh)"
 fi
 
+
+## Check for required homebrew formulas
 brew_formulas=()
 echo 'Imagemagick exists?'
 if brew ls --versions imagemagick > /dev/null; then
   echo OK
-  # The package is installed
 else
   echo 'imagemagick not installed. Queueing for installation...'
   brew_formulas+=('imagemagick')
-  # The package is not installed
 fi
+
 
 echo 'OCRmyPDF exists?'
 if brew ls --versions ocrmypdf > /dev/null; then
@@ -49,6 +51,7 @@ else
   echo 'OCRmyPDF not installed. Queueing for installation...'
   brew_formulas+=('ocrmypdf')
 fi
+
 
 echo 'Enquirer exists?'
 if brew ls --versions enquirer > /dev/null; then
@@ -59,47 +62,48 @@ else
   brew install enquirer
 fi
 
+
+echo 'img2pdf exists?'
+if command -v img2pdf > /dev/null 2>&1; then
+  echo OK
+else
+  echo 'img2pdf not installed. Please go to https://github.com/josch/img2pdf and follow the installation instructions, then run this script again.'
+  exit 1
+fi
+
+
+## Install missing homebrew formulas
 for i in "${brew_formulas[@]}"
 do
   brew install $i
 done
 
-# urls=($(linkchecker ${url} --verbose -r=1 --ignore=About --file-output=csv | grep '^Real URL' | sed 's/Real URL   //g' | sed "s/.*(?<!\.(jpg|xml))$//g")) > ${outdir}/links-2.txt
-# linkchecker ${url} --verbose -r=1 --file-output=csv | grep '^Real URL' | sed 's/Real URL   //g' | sed "s/.*(?<!\.(jpg|xml|js|svg))$//g" > ${outdir}/links-2.txt
-# linkchecker ${url} --verbose -r=1 --file-output=csv | grep '^Real URL' | sed 's/Real URL   //g' | sed '/.*(?<!\.(jpg|xml|js|svg))$/d' > ${outdir}/links-2.txt
-# urls=($(linkchecker ${url} --verbose -r=1 --file-output=csv | grep '^Real URL' | sed 's/Real URL   //g' | grep "^${url}"))
 
 echo 'Gathering individual URLs...'
 urls=($(linkchecker ${url} --verbose -r=1 --file-output=csv | grep '^Real URL' | sed 's/Real URL   //g' | grep ${url_root}))
 
-
-## Uncomment to echo final linkchecker results
+## Uncomment to echo linkchecker results
 # for i in "${urls[@]}"
 # do
 # echo "Link ${i}"
 # done
 
 
-# printf '%s' "${urls[@]}"
-# urls_list=$(printf "%s " "${urls[@]}")
-# echo "URLS ${urls}"
 urls_sorted=($(enquirer sort -m "Sort order of pages:" ${urls[@]}))
-# echo "Sorted results: ${urls_sorted}"
 
+## Uncomment to echo linkchecker results
 # for i in "${urls_sorted[@]}"
 # do
 # echo "Sorted ${i}"
 # done
 
-# exit 1
 
-#> ${outdir}/links-2.txt
-# linkchecker ${url} --verbose -r=1 --file-output=csv | grep '^Real URL' | sed 's/Real URL   //g' | awk "!/.*(?<!jpg|xml|js|svg)$/d" > ${outdir}/links-2.txt
-# echo ${#urls}
+## Create a place for the screenshots
+if [ "$dry_run" = "false" ]; then
+  mkdir -p ${outdir}
+  mkdir -p ${outdir}/cropped
+fi
 
-# Create a place for the screenshots
-mkdir -p ${outdir}
-mkdir -p ${outdir}/cropped
 
 ## Loop through the URLS array and fetch screenshots of each
 j=0
@@ -115,39 +119,32 @@ do
   fi
 done
 
-# echo 'Removing first screenshot as duplicate...'
-# rm ${outdir}/*-0.jpg
-# echo DONE
 
-# magick ${outdir}/*.png ${outdir}/page-%d.pdf
-# convert ${outdir}/*.png -background white -alpha remove -alpha off ready-%d.png
-# img2pdf ${outdir}/*.png | ocrmypdf --output-type pdf - complete.pdf
-# convert ${outdir}/*.png -background white -alpha remove -alpha off {}
-# mogrify ${outdir}/*.png -background white -alpha remove -alpha off
-# img2pdf ${outdir}/*.jpg | ocrmypdf --output-type pdf --optimize 2 - ${outdir}/complete.pdf
-
+## Combine all screenshots into single image
 echo 'Combining screenshots...'
 if [ "$dry_run" = "false" ]; then
   convert -append ${outdir}/*.jpg ${outdir}/full.jpg
 fi
 echo DONE
 
+
+## Chop the aggregate image into equal-sized images for better print results
 echo 'Normalizing sizes...'
 if [ "$dry_run" = "false" ]; then
   convert -crop 1280x1920 +repage ${outdir}/full.jpg ${outdir}/cropped/cropped_%d.jpg
 fi
 echo DONE
 
-# convert -bordercolor white -border 0x50 ./cropped/*.jpg ./border/border_%d.jpg
-# img2pdf --output 6.pdf --pagesize Letter --imgsize 8in --fit fill ./cropped/*.jpg
 
+## Combine images into a letter-sized PDF file, then run the output PDF through OCR
 echo 'Building PDF...'
-# img2pdf --output ${outdir}/complete.pdf --pagesize Letter --imgsize 8inx10.5in --border 1cm:0 ${outdir}/cropped/*.jpg
-# img2pdf ${outdir}/cropped/*.jpg --pagesize Letter --imgsize 8inx10.5in --border 1cm:0 | ocrmypdf --output-type pdf --optimize 2 - ${outdir}/complete.pdf
 if [ "$dry_run" = "false" ]; then
   img2pdf ${outdir}/cropped/*.jpg --pagesize Letter --imgsize 8inx10.5in --border 1cm:0 | ocrmypdf --output-type pdf - ${outdir}/complete.pdf
 fi
 echo DONE
+
+
+## Report the final result
 if [ "$dry_run" = "false" ]; then
   echo "Find the complete PDF at ${outdir}/complete.pdf"
 else
