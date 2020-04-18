@@ -8,22 +8,13 @@
 #  - ocrmypdf
 #  - img2pdf
 
+
 source .env
 apiflash_endpoint="https://api.apiflash.com/v1/urltoimage"
 
 
-url=$(enquirer input -m "Enter URL seed: ")
-echo "You entered ${url}"
-
-
-url_root=${url:0:18}
-trip_id=${url:8:11}
-fresh=$(enquirer confirm -m "Get fresh screenshots? (y/N)")
-outdir="$HOME/web-to-pdf-${trip_id}"
-dry_run=$(enquirer confirm -m "Dry run? (y/N)")
-
-
 ## Check if homebrew package manager is available
+echo 'Checking dependencies...'
 echo 'Brew binary exists?'
 if command -v brew > /dev/null 2>&1; then
   echo OK
@@ -79,6 +70,18 @@ do
 done
 
 
+url=$(enquirer input -m "Enter URL seed: ")
+echo "You entered ${url}"
+
+
+url_root=${url:0:18}
+trip_id=${url:8:11}
+fresh=$(enquirer confirm -m "Get fresh screenshots? (y/N)")
+outdir="website-to-pdf-${trip_id}"
+dry_run=$(enquirer confirm -m "Dry run? (y/N)")
+preserve_page_breaks=$(enquirer confirm -m "Preserve original page breaks? (y/N) Selecting 'y' may result in suboptimal print layout.")
+
+
 echo 'Gathering individual URLs...'
 urls=($(linkchecker ${url} --verbose -r=1 --file-output=csv | grep '^Real URL' | sed 's/Real URL   //g' | grep ${url_root}))
 
@@ -101,7 +104,9 @@ urls_sorted=($(enquirer sort -m "Sort order of pages:" ${urls[@]}))
 ## Create a place for the screenshots
 if [ "$dry_run" = "false" ]; then
   mkdir -p ${outdir}
-  mkdir -p ${outdir}/cropped
+  if [ "$preserve_page_breaks" = "false" ]; then
+    mkdir -p ${outdir}/cropped
+  fi
 fi
 
 
@@ -121,25 +126,33 @@ done
 
 
 ## Combine all screenshots into single image
-echo 'Combining screenshots...'
-if [ "$dry_run" = "false" ]; then
-  convert -append ${outdir}/*.jpg ${outdir}/full.jpg
+if [ "$preserve_page_breaks" = "false" ]; then
+  echo 'Combining screenshots...'
+  if [ "$dry_run" = "false" ]; then
+    convert -append ${outdir}/*.jpg ${outdir}/full.jpg
+  fi
+  echo DONE
 fi
-echo DONE
 
 
 ## Chop the aggregate image into equal-sized images for better print results
-echo 'Normalizing sizes...'
-if [ "$dry_run" = "false" ]; then
-  convert -crop 1280x1920 +repage ${outdir}/full.jpg ${outdir}/cropped/cropped_%d.jpg
+if [ "$preserve_page_breaks" = "false" ]; then
+  echo 'Normalizing sizes...'
+  if [ "$dry_run" = "false" ]; then
+    convert -crop 1280x1920 +repage ${outdir}/full.jpg ${outdir}/cropped/cropped_%d.jpg
+  fi
+  echo DONE
 fi
-echo DONE
 
 
 ## Combine images into a letter-sized PDF file, then run the output PDF through OCR
 echo 'Building PDF...'
 if [ "$dry_run" = "false" ]; then
-  img2pdf ${outdir}/cropped/*.jpg --pagesize Letter --imgsize 8inx10.5in --border 1cm:0 | ocrmypdf --output-type pdf - ${outdir}/complete.pdf
+  if [ "$preserve_page_breaks" = "false" ]; then
+    img2pdf ${outdir}/cropped/*.jpg --pagesize Letter --imgsize 8inx10.5in --border 1cm:0 | ocrmypdf --output-type pdf - ${outdir}/complete.pdf
+  else
+    img2pdf ${outdir}/*.jpg --pagesize Letter --imgsize 8inx10.5in --border 1cm:0 | ocrmypdf --output-type pdf - ${outdir}/complete.pdf
+  fi
 fi
 echo DONE
 
