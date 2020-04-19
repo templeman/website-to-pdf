@@ -25,6 +25,16 @@ else
 fi
 
 
+## Check for linkchecker
+echo 'LinkChecker exists?'
+if command -v linkchecker > /dev/null 2>&1; then
+  echo OK
+else
+  echo 'LinkChecker not installed. Please go to https://github.com/linkchecker/linkchecker and follow the installation instructions, then run this script again.'
+  exit 1
+fi
+
+
 ## Check for required homebrew formulas
 brew_formulas=()
 echo 'Imagemagick exists?'
@@ -95,7 +105,7 @@ urls=($(linkchecker ${url} --verbose -r=1 --file-output=csv | grep '^Real URL' |
 
 urls_sorted=($(enquirer sort -m "Sort order of pages:" ${urls[@]}))
 
-## Uncomment to echo linkchecker results
+## Uncomment to echo sorted list
 # for i in "${urls_sorted[@]}"
 # do
 # echo "Sorted ${i}"
