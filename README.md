@@ -9,6 +9,15 @@ specialize in capturing screenshots and manipulating images and PDF files. This
 wrapper automates the process of generating a high-fidelity PDF from a website,
 without the need for a browser or GUI.
 
+Specifically, the script will
+
+1. Accept a seed URL and use it to build out a list of URLs for that site.
+2. For each URL, fetch as a screenshot using APIFlash, a screenshot-generator API service.
+3. Combine all resultant screenshots one below another vertically into a single image.
+4. Chop the aggregate image into equal, letter-sized images.
+5. Combine the images into a single PDF file.
+6. Run OCR on the PDF to make it searchable.
+
 ## Requirements
 
 This script requires the following:
@@ -33,7 +42,12 @@ attempt to install the missing resources.
 
 ## Usage
 
-Invoke the script from the command line: `./website_to_pdf` and follow the prompts.
+Invoke the script from the command line
+```
+$ ./website_to_pdf
+```
+and follow the prompts. Upon successful completion of the script, a new directory containing
+the output PDF will be created relative to the `website_to_pdf` file.
 
 ### Prompts
 
