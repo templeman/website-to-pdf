@@ -4,6 +4,7 @@
 #  - a Bourne-compatible shell (only tested for zsh)
 #  - Homebrew package manager
 #  - enquirer
+#  - linkchecker
 #  - imagemagick
 #  - ocrmypdf
 #  - img2pdf
