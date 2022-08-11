@@ -90,11 +90,11 @@ generated from a large site. However, it is possible to tweak this value - look
 at the `linkchecker` command, specifically the `r` flag which sets recursion
 depth.
 
-Website-To-PDF was created for an internal project that involved URLs of a
-specific, nonvarying structure. As a result, a major idiosyncrasy of the script
-is that it will use characters 9-19 of the seed URL to generate the filename of
-the resulting PDF. Customizing this filename is left as an exercise for the
-user.
+Website-To-PDF was created for an internal project that involved URLs of
+a specific, nonvarying structure. As a result, a major idiosyncrasy of the
+script is that the segment of the seed URL that is used to generate the
+filename of the PDF is currently hardcoded. Customizing this filename is left
+as an exercise for the user.
 
 ## Disclaimer
 

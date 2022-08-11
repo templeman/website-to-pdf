@@ -35,6 +35,26 @@ else
 fi
 
 
+## Taken from https://gist.github.com/cdown/1163649
+urlencode() {
+  # urlencode <string>
+
+  old_lc_collate=$LC_COLLATE
+  LC_COLLATE=C
+
+  local length="${#1}"
+  for (( i = 0; i < length; i++ )); do
+      local c="${1:$i:1}"
+      case $c in
+          [a-zA-Z0-9.~_-]) printf '%s' "$c" ;;
+          *) printf '%%%02X' "'$c" ;;
+      esac
+  done
+
+  LC_COLLATE=$old_lc_collate
+}
+
+
 ## Check for required homebrew formulas
 brew_formulas=()
 echo 'Imagemagick exists?'
@@ -85,8 +105,10 @@ url=$(enquirer input -m "Enter URL seed: ")
 echo "You entered ${url}"
 
 
+# url_root=${url:0:18}
 url_root=${url:0:18}
-trip_id=${url:8:11}
+# trip_id=${url:8:11}
+trip_id=${url:45:20}
 fresh=$(enquirer confirm -m "Get fresh screenshots? (y/N)")
 outdir="website-to-pdf-${trip_id}"
 dry_run=$(enquirer confirm -m "Dry run? (y/N)")
@@ -127,8 +149,11 @@ for i in "${urls_sorted[@]}"
 do
    if [[ ! $i =~ .*\.(svg|png|js|css|xml)$ ]]; then
     echo "Generating screenshot of $i..."
+    u=$(urlencode "${i}")
+    request=("${apiflash_endpoint}?access_key=${access_key}&url=${u}&width=1280&full_page=true&fresh=${fresh}&format=jpeg&quality=100")
+    echo "Generating screenshot of request $request..."
     if [ "$dry_run" = "false" ]; then
-      curl --request GET --url "${apiflash_endpoint}?access_key=${access_key}&url=${i}&width=1280&full_page=true&fresh=${fresh}&format=jpeg&quality=100" > ${outdir}/apiflash-${j}.jpg
+      curl --request GET --url "$request" > ${outdir}/apiflash-${j}.jpg
     fi
     echo DONE
     j=$((j + 1))
